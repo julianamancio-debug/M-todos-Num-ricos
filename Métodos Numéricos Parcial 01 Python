@@ -1,0 +1,88 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.interpolate import CubicSpline
+from scipy.optimize import bisect, newton
+
+f=np.array([100,120,145,170,200,235,270,310,355,405,460,520,585,655,730,810,895,985,1080,1180,1290,1410,1540,1680,1830,1990,2160,2340,2530,2730])
+Z=np.array([152.3,149.1,146.8,144.9,142.0,139.5,137.9,136.1,134.8,133.6,132.7,131.9,131.4,131.1,130.9,131.0,131.3,131.9,132.7,133.8,135.2,136.9,138.9,141.1,143.5,146.1,149.0,152.2,155.6,159.2])
+
+# B1
+p=np.poly1d(np.polyfit(f,Z,15))
+print("B1 -> Polinomio en 1000 Hz =",p(1000))
+
+# B2
+s=CubicSpline(f,Z,bc_type='natural')
+print("B2 -> Spline en 1000 Hz =",s(1000))
+
+# C
+d1=s.derivative()
+d2=s.derivative(2)
+
+for i in range(len(f)-1):
+    if d1(f[i])*d1(f[i+1])<0:
+        fmin=bisect(d1,f[i],f[i+1])
+        break
+
+print("C -> Frecuencia mínima =",fmin)
+print("C -> Segunda derivada =",d2(fmin))
+
+# D
+g=lambda x:s(x)-150
+raices=[]
+
+for i in range(len(f)-1):
+    if g(f[i])*g(f[i+1])<0:
+        rb=bisect(g,f[i],f[i+1])
+        rn=newton(g,(f[i]+f[i+1])/2,fprime=d1)
+        raices.append((rb,rn))
+
+print("\nD -> Raíces (Bisección, Newton)")
+for r in raices:
+    print(r)
+
+x=np.linspace(min(f),max(f),2000)
+
+# ------------------ PARTE A ------------------
+plt.figure("Parte A - Datos experimentales")
+plt.plot(f,Z,'o-')
+plt.xlabel("Frecuencia (Hz)")
+plt.ylabel("|Z| (Ohm)")
+plt.title("Parte A: Impedancia vs Frecuencia")
+plt.grid()
+
+# ------------------ PARTE B ------------------
+plt.figure("Parte B - Interpolación")
+plt.plot(f,Z,'ko',label='Datos')
+plt.plot(x,p(x),label='Polinomio grado 15')
+plt.plot(x,s(x),label='Spline cúbico')
+plt.xlabel("Frecuencia (Hz)")
+plt.ylabel("|Z| (Ohm)")
+plt.title("Parte B: Comparación de interpolaciones")
+plt.legend()
+plt.grid()
+
+# ------------------ PARTE C ------------------
+plt.figure("Parte C - Derivada")
+plt.plot(x,d1(x))
+plt.axhline(0,color='r')
+plt.xlabel("Frecuencia (Hz)")
+plt.ylabel("d|Z|/df")
+plt.title("Parte C: Primera derivada")
+plt.grid()
+
+# ------------------ PARTE D ------------------
+plt.figure("Parte D - Raíces")
+plt.plot(x,s(x),label='Spline')
+plt.axhline(150,color='r',label='Z = 150 Ω')
+
+for r,_ in raices:
+    plt.plot(r,150,'ko')
+
+plt.xlabel("Frecuencia (Hz)")
+plt.ylabel("|Z| (Ohm)")
+plt.title("Parte D: Búsqueda de raíces")
+plt.legend()
+plt.grid()
+
+# Muestra todas las ventanas a la vez
+plt.show()

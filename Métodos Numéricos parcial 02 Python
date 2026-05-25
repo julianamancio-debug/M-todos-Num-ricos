@@ -1,0 +1,69 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.interpolate import CubicSpline
+from scipy.optimize import root_scalar
+
+# --- 1. Datos del Ensayo ---
+f = np.array([10.0, 12.5, 15.0, 17.5, 20.0, 22.5, 25.0, 27.5, 30.0, 32.5, 35.0, 
+              37.5, 40.0, 42.5, 45.0, 47.5, 50.0, 52.5, 55.0, 57.5, 60.0, 62.5, 
+              65.0, 67.5, 70.0, 72.5, 75.0, 77.5, 80.0, 82.5, 85.0, 87.5, 90.0, 
+              92.5, 95.0, 97.5, 100.0, 102.5, 105.0, 107.5])
+v = np.array([0.842, 0.911, 0.986, 1.062, 1.143, 1.227, 1.314, 1.401, 1.482, 
+              1.551, 1.216, 1.048, 0.866, 0.689, 0.521, 0.364, 0.223, 0.103, 
+              0.012, -0.041, -0.057, -0.034, 0.018, 0.096, 0.197, 0.318, 0.452, 
+              0.579, 0.700, 0.809, 0.611, 0.688, 0.756, 0.811, 0.856, 0.894, 
+              0.926, 0.954, 0.980, 1.004])
+z = np.array([182.4, 178.9, 175.1, 171.0, 166.8, 162.7, 158.9, 155.4, 152.0, 
+              149.0, 146.1, 145.2, 145.8, 147.3, 149.9, 153.5, 158.0, 163.2, 
+              168.9, 174.8, 180.5, 186.2, 191.5, 196.2, 200.1, 203.1, 205.2, 
+              206.3, 206.1, 204.7, 198.0, 194.4, 190.9, 187.8, 185.1, 183.0, 
+              181.6, 180.8, 180.6, 180.9])
+
+# --- 2. Procesamiento Numérico ---
+# Interpolación
+cs_v = CubicSpline(f, v, bc_type='natural')
+cs_z = CubicSpline(f, z, bc_type='natural')
+cs_v_prime = cs_v.derivative()
+
+# Identificar puntos críticos de V(f) (donde dV/df = 0)
+f_dense = np.linspace(f.min(), f.max(), 1000)
+dv_vals = cs_v_prime(f_dense)
+criticos = []
+for i in range(len(dv_vals)-1):
+    if dv_vals[i] * dv_vals[i+1] < 0:
+        sol = root_scalar(cs_v_prime, bracket=[f_dense[i], f_dense[i+1]], method='bisect')
+        if sol.converged:
+            criticos.append(sol.root)
+
+# --- 3. Generación de Gráficos ---
+fig, axes = plt.subplots(3, 1, figsize=(10, 12), sharex=True)
+
+# Gráfico 1: Voltaje
+axes[0].plot(f, v, 'ko', label='Datos medidos')
+axes[0].plot(f_dense, cs_v(f_dense), 'b-', label='Spline V(f)')
+axes[0].plot(criticos, cs_v(criticos), 'rx', markersize=8, label='Puntos críticos')
+axes[0].set_ylabel('Voltaje (V)')
+axes[0].set_title('Respuesta de Voltaje V(f)')
+axes[0].grid(True)
+axes[0].legend()
+
+# Gráfico 2: Impedancia
+axes[1].plot(f, z, 'ro', label='Datos medidos')
+axes[1].plot(f_dense, cs_z(f_dense), 'r-', label='Spline |Z(f)|')
+axes[1].set_ylabel('Impedancia (Ω)')
+axes[1].set_title('Respuesta de Impedancia |Z(f)|')
+axes[1].grid(True)
+axes[1].legend()
+
+# Gráfico 3: Derivada dV/df
+axes[2].plot(f_dense, cs_v_prime(f_dense), 'g-', label='dV/df (Derivada)')
+axes[2].axhline(0, color='black', linestyle='--', linewidth=0.8)
+axes[2].plot(criticos, cs_v_prime(criticos), 'ro', label='Cruces por cero (dV/df = 0)')
+axes[2].set_ylabel('dV/df (V/kHz)')
+axes[2].set_xlabel('Frecuencia (kHz)')
+axes[2].set_title('Evolución de la Sensibilidad (Derivada dV/df)')
+axes[2].grid(True)
+axes[2].legend()
+
+plt.tight_layout()
+plt.show()
